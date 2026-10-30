@@ -1,0 +1,25 @@
+REELS WORKFLOW HAND-OFF FIX
+
+Replace these two files in your GitHub repository:
+
+1) .github/workflows/render-reel.yml
+2) .github/workflows/build-instagram-package.yml
+
+Keep these existing root files unchanged:
+- render_reel.py
+- assemble_final_reel.py
+
+What this fixes:
+- Render workflow saves the exact submitted draft as story.json.
+- Render artifact is consistently named cinematic-reel.
+- The artifact contains both cinematic_reel.mp4 and story.json.
+- After a successful render, GitHub automatically starts the publishing workflow.
+- Publishing uses the same render run ID and its matching story.json.
+- Manual publishing-workflow dispatch remains available for retries.
+
+IMPORTANT:
+- The first automatic publishing run only happens for new render runs after you replace these workflow files.
+- Existing older artifacts named cinematic-reel-v3 do not contain the story JSON and are not compatible with this automatic hand-off.
+- This does not automate Google Sheets approval or Instagram posting. Keep using your current manual approval process.
+- No image/video generation occurs in the publishing workflow; it only downloads the completed render and generates narration/subtitles/package assets.
+- Edge TTS and the external image endpoint may have availability or usage limits; neither should be treated as guaranteed unlimited/free forever.
