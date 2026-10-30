@@ -1,5 +1,6 @@
 import asyncio
 import json
+import random
 import subprocess
 from pathlib import Path
 import edge_tts
@@ -85,7 +86,37 @@ async def main():
 
         raw = (work_dir / f"raw_{index + 1:02}.mp3").resolve()
         fitted = (work_dir / f"fit_{index + 1:02}.mp3").resolve()
-        await edge_tts.Communicate(text=narration_text, voice=VOICES[gender]).save(str(raw))
+        # Edge TTS can occasionally return an empty stream even with valid text.
+        # Retry the same character voice before failing the workflow.
+        last_error = None
+        for attempt in range(1, 5):
+            try:
+                if raw.exists():
+                    raw.unlink()
+                print(f"Generating scene {index + 1} with {VOICES[gender]} (attempt {attempt}/4)")
+                await edge_tts.Communicate(
+                    text=narration_text,
+                    voice=VOICES[gender],
+                    rate="+0%",
+                    volume="+0%"
+                ).save(str(raw))
+                if raw.exists() and raw.stat().st_size > 1000:
+                    last_error = None
+                    break
+                raise RuntimeError("Edge TTS returned an empty or unusually small audio file.")
+            except Exception as exc:
+                last_error = exc
+                print(f"Voice generation attempt {attempt} failed: {type(exc).__name__}: {exc}")
+                if attempt < 4:
+                    await asyncio.sleep(3 * attempt)
+        if last_error is not None:
+            raise RuntimeError(
+                f"Could not generate Tamil audio for scene {index + 1} "
+                f"using {VOICES[gender]} after 4 attempts. "
+                "The Edge TTS service may be temporarily unavailable. "
+                "Rerun the workflow later; no images or video need to be regenerated."
+            ) from last_error
+
         speed = duration(raw) / scene_lengths[index]
         run([
             "ffmpeg", "-y", "-i", str(raw), "-af", tempo_filter(speed),
