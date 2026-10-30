@@ -4,18 +4,34 @@ on:
   workflow_dispatch:
     inputs:
       draft_json:
-        description: "Raw JSON from the Google Sheet row"
+        description: "Raw JSON from the approved Google Sheet row"
         required: true
         type: string
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
   render:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
-      - name: Checkout repository
+      - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Save this story with the render
+        env:
+          DRAFT_JSON: ${{ inputs.draft_json }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          raw = os.environ["DRAFT_JSON"]
+          story = json.loads(raw)
+          if not isinstance(story.get("scenes"), list) or len(story["scenes"]) != 5:
+              raise SystemExit("Expected exactly five scenes in draft_json.")
+          with open("story.json", "w", encoding="utf-8") as f:
+              json.dump(story, f, ensure_ascii=False, indent=2)
+          PY
 
       - name: Install FFmpeg and fonts
         run: |
@@ -30,9 +46,17 @@ jobs:
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: python3 render_reel.py
 
-      - name: Upload finished Reel
+      - name: Verify render outputs
+        run: |
+          test -s cinematic_reel.mp4
+          test -s story.json
+
+      - name: Upload video and matching story
         uses: actions/upload-artifact@v4
         with:
-          name: cinematic-reel-v3
-          path: cinematic_reel.mp4
+          name: cinematic-reel
+          path: |
+            cinematic_reel.mp4
+            story.json
+          if-no-files-found: error
           retention-days: 7
