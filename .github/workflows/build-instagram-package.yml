@@ -1,13 +1,15 @@
+
 name: Build Instagram Publishing Package
 
 on:
   workflow_run:
     workflows: ["Generate cinematic Reel"]
     types: [completed]
+
   workflow_dispatch:
     inputs:
       source_run_id:
-        description: "Optional source render run ID for a manual retry"
+        description: "Source render run ID for a manual package retry"
         required: true
         type: string
 
@@ -20,7 +22,9 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success')
+
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -56,20 +60,32 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
 
       - name: Install FFmpeg and fonts
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core
 
-      - name: Install Edge TTS
-        run: pip install edge-tts
+      - name: Install Tamil TTS providers
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install edge-tts gTTS
 
       - name: Build final Reel and publishing assets
         run: |
           cp assemble_final_reel.py work/assemble_final_reel.py
           cd work
           python assemble_final_reel.py
+
+      - name: Verify publishing package
+        run: |
+          test -s work/publishing_package/final_reel.mp4
+          test -s work/publishing_package/reel_cover.jpg
+          test -s work/publishing_package/instagram_caption.txt
+          test -s work/publishing_package/english_subtitles.srt
+
+          echo "All four publishing files are ready."
 
       - name: Upload Instagram publishing package
         uses: actions/upload-artifact@v4
