@@ -16,19 +16,23 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Install FFmpeg and fonts
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core fonts-noto-core
+
       - name: Verify subtitle filter
         run: ffmpeg -filters 2>/dev/null | grep subtitles
+
       - name: Generate images and render video
         env:
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: python3 render_reel.py
+
       - name: Upload finished Reel
         uses: actions/upload-artifact@v4
         with:
-          name: cinematic-reel-v2
+          name: cinematic-reel-v3
           path: cinematic_reel.mp4
           retention-days: 7
