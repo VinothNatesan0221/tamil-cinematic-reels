@@ -103,32 +103,72 @@ for i, scene in enumerate(scenes):
 ass_path = ROOT / "subtitles.ass"
 ass_path.write_text("\n".join(ass) + "\n", encoding="utf-8")
 
-# Original synthesized 30-second horror ambience: low drone, tape hiss and clicks.
+# Original synthesized 30-second hybrid horror ambience:
+# smooth cinematic drone + gentle air movement + very subtle tape-machine hum.
+# No white-noise bursts, random crackle, harsh static, or radio-tuning effects.
 sr, duration = 44100, 30
-rng = random.Random(20261030)
 audio_path = ROOT / "ambience.wav"
+
+def smoothstep(a, b, x):
+    if x <= a:
+        return 0.0
+    if x >= b:
+        return 1.0
+    q = (x - a) / (b - a)
+    return q * q * (3.0 - 2.0 * q)
+
 with wave.open(str(audio_path), "wb") as wav:
-    wav.setnchannels(2); wav.setsampwidth(2); wav.setframerate(sr)
+    wav.setnchannels(2)
+    wav.setsampwidth(2)
+    wav.setframerate(sr)
+
     chunk = 4410
-    for base in range(0, sr*duration, chunk):
+    total = sr * duration
+    for base_sample in range(0, total, chunk):
         frames = []
-        for n in range(base, min(base+chunk, sr*duration)):
+        for n in range(base_sample, min(base_sample + chunk, total)):
             t = n / sr
-            swell = 0.25 + 0.45*t/duration
-            drone = (0.12*math.sin(2*math.pi*48*t)
-                     + 0.07*math.sin(2*math.pi*73*t)
-                     + 0.035*math.sin(2*math.pi*110*t))*swell
-            hiss = rng.uniform(-1, 1)*0.018
-            click = 0.0
-            if any(abs(t-p)<0.025 for p in (5.8, 11.8, 17.8, 23.8)):
-                click = rng.uniform(-0.12, 0.12)
-            if 27 < t < 29.8:
-                env = min(1, (t-27)/0.5)*min(1, (29.8-t)/0.4)
-                click += env*(0.10*math.sin(2*math.pi*190*t)+rng.uniform(-0.1,0.1))
-            fade = min(1,t/1.2)*min(1,(duration-t)/1.0)
-            sample = max(-0.85,min(0.85,(drone+hiss+click)*fade))
-            v = int(sample*32767)
-            frames.append(struct.pack("<hh",v,int(v*0.96)))
+
+            # Gentle overall fade and slow suspense build.
+            fade_in = smoothstep(0.0, 2.0, t)
+            fade_out = 1.0 - smoothstep(28.8, 30.0, t)
+            build = 0.62 + 0.38 * smoothstep(8.0, 25.0, t)
+
+            # Smooth low cinematic drone: stable tones, no beating/static bursts.
+            drone = (
+                0.105 * math.sin(2 * math.pi * 48.0 * t) +
+                0.052 * math.sin(2 * math.pi * 64.0 * t + 0.25) +
+                0.026 * math.sin(2 * math.pi * 96.0 * t + 0.7)
+            ) * build
+
+            # Soft airy movement made from slowly modulated, low-level tones.
+            air_mod = 0.5 + 0.5 * math.sin(2 * math.pi * 0.075 * t + 0.4)
+            air = (
+                0.014 * math.sin(2 * math.pi * 180.0 * t + 0.5 * math.sin(2 * math.pi * 0.11 * t)) +
+                0.008 * math.sin(2 * math.pi * 230.0 * t + 0.3)
+            ) * (0.35 + 0.65 * air_mod)
+
+            # Quiet mechanical tape transport hum, kept tonal and unobtrusive.
+            tape_hum = (
+                0.010 * math.sin(2 * math.pi * 118.0 * t) +
+                0.004 * math.sin(2 * math.pi * 236.0 * t + 0.2)
+            )
+
+            # A single gentle rewind-style swell near the ending, without static.
+            rewind_env = smoothstep(26.0, 28.2, t) * (1.0 - smoothstep(29.0, 29.9, t))
+            rewind = rewind_env * (
+                0.018 * math.sin(2 * math.pi * (150.0 + 8.0 * (t - 26.0)) * t) +
+                0.010 * math.sin(2 * math.pi * 205.0 * t)
+            )
+
+            sample = (drone + air + tape_hum + rewind) * fade_in * fade_out
+            sample = max(-0.45, min(0.45, sample))
+
+            # Slight stereo width without phasey or frequency-sweep effects.
+            left = int(sample * 32767)
+            right = int(sample * 0.94 * 32767)
+            frames.append(struct.pack("<hh", left, right))
+
         wav.writeframes(b"".join(frames))
 
 clips = []
@@ -164,5 +204,5 @@ subprocess.run(
      "-b:a","160k","-shortest","-movflags","+faststart","cinematic_reel.mp4"],
     check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
 )
-print("SUCCESS: Created cinematic_reel.mp4 with shaped subtitles and original ambience.")
-print("NOTE: This adds atmospheric sound effects, not spoken Tamil narration.")
+print("SUCCESS: Created cinematic_reel.mp4 with shaped subtitles and clean hybrid horror ambience.")
+print("NOTE: This adds smooth cinematic ambience and subtle tape effects, not spoken Tamil narration.")
