@@ -1,50 +1,37 @@
-name: Render cinematic Reel
+
+name: Generate cinematic Reel
+
 on:
   workflow_dispatch:
     inputs:
       draft_json:
-        description: 'Raw JSON from the Google Sheet row'
+        description: "Raw JSON from the Google Sheet row"
         required: true
         type: string
-      scene1_url:
-        description: 'Public direct image URL for scene 1'
-        required: true
-        type: string
-      scene2_url:
-        description: 'Public direct image URL for scene 2'
-        required: true
-        type: string
-      scene3_url:
-        description: 'Public direct image URL for scene 3'
-        required: true
-        type: string
-      scene4_url:
-        description: 'Public direct image URL for scene 4'
-        required: true
-        type: string
-      scene5_url:
-        description: 'Public direct image URL for scene 5'
-        required: true
-        type: string
+
 jobs:
   render:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Install FFmpeg
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg and fonts
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
-      - name: Render video
+          sudo apt-get install -y ffmpeg fonts-dejavu-core fonts-noto-core
+
+      - name: Generate images and render video
         env:
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: python3 render_reel.py
+
       - name: Upload finished Reel
         uses: actions/upload-artifact@v4
         with:
           name: cinematic-reel
           path: cinematic_reel.mp4
           retention-days: 7
-
