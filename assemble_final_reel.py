@@ -51,7 +51,7 @@ def wrap_subtitle(value, width=34):
 async def main():
     story_file = ROOT / "story.json"
     if not story_file.is_file():
-        raise FileNotFoundError(f"Missing story JSON: {story_file}")
+        raise FileNotFoundError("story.json is missing from the repository root.")
     story = json.loads(story_file.read_text(encoding="utf-8"))
     scenes = story.get("scenes", [])
     if not scenes:
@@ -68,54 +68,45 @@ async def main():
 
     scene_lengths = [float(s.get("duration_seconds", 6)) for s in scenes]
     if any(x <= 0 for x in scene_lengths):
-        raise ValueError("Every scene duration_seconds must be greater than zero.")
+        raise ValueError("Scene durations must be greater than zero.")
     total = sum(scene_lengths)
     scene_lengths = [x * video_length / total for x in scene_lengths]
 
     work_dir = ROOT / "voice_work"
     work_dir.mkdir(parents=True, exist_ok=True)
     voice_parts = []
-
     for index, scene in enumerate(scenes):
-        text = str(scene.get("tamil_narration", "")).strip()
+        narration_text = str(scene.get("tamil_narration", "")).strip()
         gender = str(scene.get("speaker_gender", "male")).lower().strip()
-        if not text:
+        if not narration_text:
             raise ValueError(f"Scene {index + 1} is missing tamil_narration.")
         if gender not in VOICES:
             raise ValueError(f"Scene {index + 1}: speaker_gender must be male or female.")
 
         raw = (work_dir / f"raw_{index + 1:02}.mp3").resolve()
         fitted = (work_dir / f"fit_{index + 1:02}.mp3").resolve()
-        await edge_tts.Communicate(text=text, voice=VOICES[gender]).save(str(raw))
-
-        raw_length = duration(raw)
-        target_length = scene_lengths[index]
+        await edge_tts.Communicate(text=narration_text, voice=VOICES[gender]).save(str(raw))
+        speed = duration(raw) / scene_lengths[index]
         run([
-            "ffmpeg", "-y", "-i", str(raw),
-            "-af", tempo_filter(raw_length / target_length),
-            "-t", f"{target_length:.3f}", "-ar", "44100", "-ac", "2", str(fitted)
+            "ffmpeg", "-y", "-i", str(raw), "-af", tempo_filter(speed),
+            "-t", f"{scene_lengths[index]:.3f}", "-ar", "44100", "-ac", "2", str(fitted)
         ])
         if not fitted.is_file():
-            raise FileNotFoundError(f"FFmpeg did not create voice clip: {fitted}")
+            raise FileNotFoundError(f"Voice clip was not created: {fitted}")
         voice_parts.append(fitted)
 
-    # Use an absolute concat-list path and absolute clip paths to avoid cwd/path errors.
     concat_list = (work_dir / "concat.txt").resolve()
-    concat_text = "".join(f"file '{part.as_posix()}'\n" for part in voice_parts)
-    concat_list.write_text(concat_text, encoding="utf-8")
-    if not concat_list.is_file():
-        raise FileNotFoundError(f"Concat list was not created: {concat_list}")
-    print(f"Created concat list: {concat_list}")
-    print(concat_list.read_text(encoding="utf-8"))
-
+    concat_list.write_text(
+        "".join(f"file '{part.as_posix()}'\n" for part in voice_parts),
+        encoding="utf-8"
+    )
     narration = ROOT / "tamil_narration.mp3"
     run([
         "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_list),
         "-c:a", "libmp3lame", "-b:a", "128k", str(narration)
     ])
 
-    subtitle_entries = []
-    elapsed = 0.0
+    subtitle_entries, elapsed = [], 0.0
     for index, scene in enumerate(scenes):
         subtitle = str(scene.get("english_subtitle", "")).strip()
         if subtitle:
@@ -125,7 +116,6 @@ async def main():
                 f"{wrap_subtitle(subtitle)}\n"
             )
         elapsed += scene_lengths[index]
-
     subtitle_file = ROOT / "english_subtitles.srt"
     subtitle_file.write_text("\n".join(subtitle_entries), encoding="utf-8")
 
@@ -143,7 +133,43 @@ async def main():
         "-c:a", "aac", "-b:a", "160k", "-t", f"{video_length:.3f}",
         "-movflags", "+faststart", str(final_video)
     ])
-    print(f"SUCCESS: Created {final_video}")
+
+    # Extract a clean vertical cover frame from the existing video; no image generation.
+    cover = ROOT / "reel_cover.jpg"
+    cover_time = min(1.0, max(0.0, video_length * 0.08))
+    run([
+        "ffmpeg", "-y", "-ss", f"{cover_time:.3f}", "-i", str(video),
+        "-frames:v", "1", "-vf",
+        "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
+        "-q:v", "2", str(cover)
+    ])
+
+    hashtags = story.get("hashtags", [])
+    if isinstance(hashtags, str):
+        hashtags = hashtags.split()
+    hashtag_line = " ".join(
+        tag if str(tag).startswith("#") else "#" + str(tag).replace(" ", "")
+        for tag in hashtags
+    )
+    caption_lines = [
+        str(story.get("caption_tamil", "")).strip(),
+        "",
+        str(story.get("caption_english", "")).strip(),
+        "",
+        hashtag_line,
+    ]
+    caption_file = ROOT / "instagram_caption.txt"
+    caption_file.write_text("\n".join(caption_lines).strip() + "\n", encoding="utf-8")
+
+    package_dir = ROOT / "publishing_package"
+    package_dir.mkdir(exist_ok=True)
+    for item in [final_video, cover, caption_file, subtitle_file]:
+        target = package_dir / item.name
+        target.write_bytes(item.read_bytes())
+
+    print("SUCCESS: Publishing package created:")
+    for item in package_dir.iterdir():
+        print(f"- {item.name} ({item.stat().st_size} bytes)")
 
 if __name__ == "__main__":
     asyncio.run(main())
