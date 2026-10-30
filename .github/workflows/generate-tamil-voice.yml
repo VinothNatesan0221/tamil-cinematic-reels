@@ -1,0 +1,37 @@
+name: Generate Tamil narration only
+
+on:
+  workflow_dispatch:
+    inputs:
+      draft_json:
+        description: "Raw JSON from the selected Google Sheet row"
+        required: true
+        type: string
+
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg and Python package
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip
+          pip install edge-tts
+
+      - name: Generate Tamil narration
+        env:
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: python generate_tamil_voice.py
+
+      - name: Upload narration audio
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamil-narration-only
+          path: tamil_narration.mp3
+          retention-days: 7
