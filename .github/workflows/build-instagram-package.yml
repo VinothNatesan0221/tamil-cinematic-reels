@@ -1,49 +1,76 @@
 name: Build Instagram Publishing Package
+
 on:
+  workflow_run:
+    workflows: ["Generate cinematic Reel"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       source_run_id:
-        description: "Run ID containing the existing cinematic-reel artifact"
+        description: "Optional source render run ID for a manual retry"
         required: true
         type: string
-      artifact_name:
-        description: "Exact source artifact name"
-        required: true
-        default: "cinematic-reel"
-        type: string
+
 permissions:
   actions: read
   contents: read
+
 jobs:
   build:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-      - name: Download existing cinematic video
+
+      - name: Select source render run
+        id: source
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_RUN_ID: ${{ github.event.workflow_run.id }}
+          MANUAL_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "run_id=$MANUAL_RUN_ID" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_id=$EVENT_RUN_ID" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download video and matching story
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.artifact_name }}
-          run-id: ${{ inputs.source_run_id }}
+          name: cinematic-reel
+          run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           path: work
+
+      - name: Verify downloaded files
+        run: |
+          test -s work/cinematic_reel.mp4
+          test -s work/story.json
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
       - name: Install FFmpeg and fonts
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core
+
       - name: Install Edge TTS
         run: pip install edge-tts
+
       - name: Build final Reel and publishing assets
         run: |
-          cp story.json work/story.json
           cp assemble_final_reel.py work/assemble_final_reel.py
           cd work
           python assemble_final_reel.py
+
       - name: Upload Instagram publishing package
         uses: actions/upload-artifact@v4
         with:
