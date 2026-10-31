@@ -1,25 +1,29 @@
-REELS WORKFLOW HAND-OFF FIX
+TAMIL CINEMATIC REELS — INSTALLATION
 
-Replace these two files in your GitHub repository:
+1. Upload this repository to GitHub and use main as the default branch (or adjust your Apps Script dispatch ref).
+2. Confirm GitHub Actions are enabled for the repository.
+3. Keep these files at the repository root:
+   - render_reel.py
+   - assemble_final_reel.py
+   - generate_tamil_voice.py
+   - requirements.txt
+4. Keep the four workflow files under .github/workflows/.
+5. The render workflow uses an OVH AI Stable Diffusion XL endpoint. Confirm endpoint availability and permitted use before a real render.
+6. The package workflow installs Python dependencies from requirements.txt and FFmpeg/fonts on the runner.
+7. Configure Apps Script to dispatch render-reel.yml only after the selected row is APPROVED. Preserve your existing approval gate and daily dispatch limit.
+8. A successful render automatically starts Build Instagram Publishing Package. The package is an artifact for human review; it is NOT posted to Instagram.
+9. Download and review final_reel.mp4, reel_cover.jpg, instagram_caption.txt and english_subtitles.srt. Upload manually only after your own approval.
 
-1) .github/workflows/render-reel.yml
-2) .github/workflows/build-instagram-package.yml
+MANUAL RETRY
+- Open the successful Generate cinematic Reel run and copy its numeric run ID.
+- Run Build Instagram Publishing Package manually and enter that source run ID.
+- Download the instagram-publishing-package artifact after success.
 
-Keep these existing root files unchanged:
-- render_reel.py
-- assemble_final_reel.py
+NO-PRODUCTION-TEST NOTE
+Local syntax checks are safe. Do not use workflow_dispatch with a real story merely to test installation; that triggers external image generation and may incur usage/cost.
 
-What this fixes:
-- Render workflow saves the exact submitted draft as story.json.
-- Render artifact is consistently named cinematic-reel.
-- The artifact contains both cinematic_reel.mp4 and story.json.
-- After a successful render, GitHub automatically starts the publishing workflow.
-- Publishing uses the same render run ID and its matching story.json.
-- Manual publishing-workflow dispatch remains available for retries.
 
-IMPORTANT:
-- The first automatic publishing run only happens for new render runs after you replace these workflow files.
-- Existing older artifacts named cinematic-reel-v3 do not contain the story JSON and are not compatible with this automatic hand-off.
-- This does not automate Google Sheets approval or Instagram posting. Keep using your current manual approval process.
-- No image/video generation occurs in the publishing workflow; it only downloads the completed render and generates narration/subtitles/package assets.
-- Edge TTS and the external image endpoint may have availability or usage limits; neither should be treated as guaranteed unlimited/free forever.
+GOOGLE SHEETS / APPS SCRIPT
+1. Paste Code.gs into the existing Apps Script project after backing up the old file.
+2. Follow APPS-SCRIPT-SETUP.md to configure Script Properties, protect the Status column, deploy the callback web app and add GitHub Actions secrets.
+3. Do not enable setupDailyRenderer unless hourly automatic render dispatch is desired. Instagram publishing stays manual.

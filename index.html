@@ -15,7 +15,7 @@
         <span><strong>Tamil Cinematic Reels</strong><small>Creator control room</small></span>
       </a>
       <div class="topbar-right">
-        <span class="live-indicator"><i></i> API connection</span>
+        <span id="connectionState" class="live-indicator" role="status"><i></i> Connecting…</span>
         <button id="refreshButton" class="button button-secondary" type="button">↻ Refresh</button>
       </div>
     </header>
@@ -54,9 +54,9 @@
           <span class="metric-foot">Waiting or submitted</span>
         </article>
         <article class="metric-card">
-          <span class="metric-label">Daily render policy</span>
-          <strong class="metric-value">2 <span class="metric-unit">/ day</span></strong>
-          <span class="metric-foot">Configured backend limit</span>
+          <span class="metric-label">Render policy</span>
+          <strong class="metric-value">Backend</strong>
+          <span class="metric-foot">Limit is controlled by Apps Script</span>
         </article>
       </section>
 
@@ -103,7 +103,7 @@
           <ol class="pipeline">
             <li class="pipeline-done"><span>1</span><div><strong>Story generation</strong><small>Drafts stored in Google Sheets</small></div></li>
             <li class="pipeline-current"><span>2</span><div><strong>Human review</strong><small>Approve stories before rendering</small></div></li>
-            <li><span>3</span><div><strong>Reel rendering</strong><small>GitHub Actions · maximum two per day</small></div></li>
+            <li><span>3</span><div><strong>Reel rendering</strong><small>GitHub Actions · status sync requires Apps Script run tracking</small></div></li>
             <li><span>4</span><div><strong>Publishing package</strong><small>Separate final review before publishing</small></div></li>
           </ol>
         </article>
@@ -111,10 +111,10 @@
           <p class="eyebrow">SAFETY FIRST</p>
           <h2>Publishing safeguards</h2>
           <ul class="safety-list">
-            <li><span class="check">✓</span><span><strong>Approval gate</strong><small>Unapproved stories are blocked from manual rendering.</small></span></li>
+            <li><span class="check">✓</span><span><strong>Verified approval gate</strong><small>Rendering requires the owner approval record to match the exact story JSON.</small></span></li>
             <li><span class="check">✓</span><span><strong>Duplicate check</strong><small>Rows with an existing render status are skipped.</small></span></li>
             <li><span class="check">✓</span><span><strong>Daily cap</strong><small>Manual and automatic dispatches share a script lock and date counter.</small></span></li>
-            <li><span class="pending">○</span><span><strong>Final publishing approval</strong><small>To be implemented as a separate stage.</small></span></li>
+            <li><span class="pending">○</span><span><strong>Final publishing approval</strong><small>Instagram publishing remains manual after reviewing the package.</small></span></li>
           </ul>
         </article>
       </section>

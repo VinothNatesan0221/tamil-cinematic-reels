@@ -14,6 +14,7 @@ const elements = {
   queued: document.getElementById("queuedRenders"),
   updated: document.getElementById("lastUpdated"),
   banner: document.getElementById("connectionBanner"),
+  connection: document.getElementById("connectionState"),
   table: document.getElementById("draftTableBody"),
   filter: document.getElementById("statusFilter"),
   refresh: document.getElementById("refreshButton")
@@ -25,6 +26,11 @@ let requestTimer = null;
 function showBanner(message, type) {
   elements.banner.textContent = message;
   elements.banner.className = `notice notice-${type}`;
+  if (elements.connection) {
+    const labels = { success: "Connected", error: "Disconnected", info: "Connecting…" };
+    elements.connection.textContent = labels[type] || "Unknown";
+    elements.connection.className = `live-indicator connection-${type || "info"}`;
+  }
 }
 
 function formatDate(value) {
@@ -40,9 +46,22 @@ function formatDate(value) {
 function classifyStatus(status) {
   const value = String(status || "").trim().toUpperCase();
   if (value === "APPROVED") return "approved";
-  if (value.includes("ERROR")) return "error";
+  if (value.includes("ERROR") || value.includes("FAILED") || value.includes("CANCELLED") || value === "FAILURE") return "error";
+  if (["SUCCESS", "SUCCEEDED", "COMPLETED"].includes(value) || value.includes("SUCCESS")) return "approved";
+  if (["IN_PROGRESS", "RUNNING", "QUEUED", "WAITING"].includes(value) ||
+      value.includes("RUNNING") || value.includes("QUEUED") || value.includes("SUBMITTING")) return "working";
   if (value.includes("REVIEW") || value.includes("DRAFT")) return "review";
   return "other";
+}
+
+function safeGitHubUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    if (url.protocol !== "https:" || url.hostname !== "github.com") return "";
+    return url.href;
+  } catch (_) {
+    return "";
+  }
 }
 
 function statusPill(status, type) {
@@ -61,12 +80,12 @@ function renderDrafts() {
   const filter = elements.filter.value;
   const filtered = allDrafts.filter(draft => {
     const approvalType = classifyStatus(draft.status);
-    const render = String(draft.renderStatus || "").toUpperCase();
+    const render = String(draft.githubStatus || draft.renderStatus || "").toUpperCase();
     if (filter === "all") return true;
-    if (filter === "approved") return approvalType === "approved";
+    if (filter === "approved") return approvalType === "approved" && draft.approvalVerified !== false;
     if (filter === "review") return approvalType === "review";
-    if (filter === "error") return approvalType === "error" || render.includes("ERROR");
-    if (filter === "queued") return render.includes("QUEUED") || render.includes("SUBMITTING");
+    if (filter === "error") return approvalType === "error" || classifyStatus(render) === "error";
+    if (filter === "queued") return classifyStatus(render) === "working";
     return true;
   });
 
@@ -78,25 +97,24 @@ function renderDrafts() {
 
   elements.table.innerHTML = filtered.map(draft => {
     const approvalType = classifyStatus(draft.status);
-    const renderText = String(draft.renderStatus || "").trim();
-    const renderType = renderText.toUpperCase().includes("ERROR")
-      ? "error"
-      : renderText.toUpperCase().includes("QUEUED")
-        ? "queued"
-        : renderText.toUpperCase().includes("SUBMITTING")
-          ? "working"
-          : "neutral";
+    const approvalText = String(draft.status || "Not set").toUpperCase() === "APPROVED" && draft.approvalVerified === false
+      ? "APPROVED — NOT VERIFIED" : (draft.status || "Not set");
+    const approvalDisplayType = approvalText.includes("NOT VERIFIED") ? "error" : approvalType;
+    const renderText = String(draft.githubStatus || draft.renderStatus || "").trim();
+    const renderType = classifyStatus(renderText);
 
     const title = draft.title || (approvalType === "error" ? "Story generation failed" : "Untitled draft");
     const hook = draft.hook ? `<small class="story-hook">${escapeHtml(draft.hook)}</small>` : "";
-    const workflow = draft.workflowUrl
-      ? `<a class="workflow-link" href="${escapeHtml(draft.workflowUrl)}" target="_blank" rel="noopener noreferrer">Open Actions ↗</a>`
-      : '<span class="muted">—</span>';
+    const workflowUrl = safeGitHubUrl(draft.githubRunUrl || draft.workflowUrl);
+    const artifactUrl = safeGitHubUrl(draft.artifactUrl);
+    const workflow = workflowUrl
+      ? `<a class="workflow-link" href="${escapeHtml(workflowUrl)}" target="_blank" rel="noopener noreferrer">Open run ↗</a>${artifactUrl ? ` <a class="workflow-link" href="${escapeHtml(artifactUrl)}" target="_blank" rel="noopener noreferrer">Artifact ↗</a>` : ""}`
+      : '<span class="muted">Not synced</span>';
 
     return `<tr>
       <td><div class="story-cell"><strong>${escapeHtml(title)}</strong>${hook}<small class="row-number">Sheet row ${escapeHtml(draft.rowNumber)}</small></div></td>
       <td class="date-cell">${escapeHtml(formatDate(draft.createdAt))}</td>
-      <td>${statusPill(draft.status || "Not set", approvalType)}</td>
+      <td>${statusPill(approvalText, approvalDisplayType)}</td>
       <td>${statusPill(renderText || "Not started", renderType)}</td>
       <td>${workflow}</td>
     </tr>`;
@@ -129,7 +147,7 @@ function loadDashboard() {
 
   // Apps Script supports JSONP through the callback parameter.
   // A unique callback avoids collisions between refresh attempts.
-  const callbackName = "tcrDashboardCallback";
+  const callbackName = `tcrDashboardCallback_${Date.now()}`;
   window[callbackName] = function (data) {
     handleDashboardData(data);
     delete window[callbackName];
@@ -137,11 +155,11 @@ function loadDashboard() {
     elements.refresh.textContent = "↻ Refresh";
   };
 
-  const oldScript = document.getElementById("dashboardJsonp");
-  if (oldScript) oldScript.remove();
+  const oldScripts = document.querySelectorAll("script[data-dashboard-jsonp='true']");
+  oldScripts.forEach(node => node.remove());
 
   const script = document.createElement("script");
-  script.id = "dashboardJsonp";
+  script.dataset.dashboardJsonp = "true";
   script.src = `${APPS_SCRIPT_URL}?action=dashboard&callback=${callbackName}&_=${Date.now()}`;
   script.onerror = function () {
     clearTimeout(requestTimer);

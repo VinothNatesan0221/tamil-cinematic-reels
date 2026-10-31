@@ -38,7 +38,10 @@ button, select { font: inherit; }
 .brand small { color: var(--muted); margin-top: 3px; font-size: 11px; }
 .topbar-right { display: flex; align-items: center; gap: 16px; }
 .live-indicator { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 8px; }
-.live-indicator i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px rgba(85,214,161,.6); }
+.live-indicator i { width: 7px; height: 7px; border-radius: 50%; background: var(--yellow); }
+.connection-success i { background: var(--green); box-shadow: 0 0 12px rgba(85,214,161,.6); }
+.connection-error i { background: var(--red); box-shadow: 0 0 12px rgba(255,129,141,.45); }
+.connection-info i { background: var(--yellow); }
 .button {
   border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px;
   color: var(--text); cursor: pointer; font-size: 12px; font-weight: 700;

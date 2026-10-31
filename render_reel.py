@@ -11,14 +11,18 @@ scenes = draft.get("scenes", [])
 if len(scenes) != 5:
     raise SystemExit("The story must contain exactly five scenes.")
 
-ANCHOR = (
-    "Character identity continuity: Kavin, the same 28-year-old South Indian "
-    "man in every scene, oval face, medium-brown skin, expressive dark eyes, "
-    "short slightly wavy black hair, thin wire-rimmed round glasses, light "
-    "stubble, faded charcoal linen shirt. Preserve the same facial structure, "
-    "age, glasses, hairstyle, skin tone and clothing. Photorealistic cinematic "
-    "film still, realistic anatomy. Do not force a frontal portrait when the "
-    "scene calls for a rear view, profile or silhouette. Vertical 9:16."
+requested_durations = [float(scene.get("duration_seconds", 6)) for scene in scenes]
+if any(value <= 0 for value in requested_durations):
+    raise SystemExit("Every scene duration_seconds must be positive.")
+# Normalize the approved scene weights to one 30-second Reel. The final
+# assembly uses the same weights against the measured source-video duration.
+scene_durations = [value * 30.0 / sum(requested_durations) for value in requested_durations]
+
+ANCHOR_SUFFIX = (
+    "Photorealistic cinematic film still, realistic anatomy and natural lighting. "
+    "Keep the same protagonist identity, facial features, age, hairstyle and clothing "
+    "across all scenes when a character description is supplied. Do not force a frontal "
+    "portrait when the scene calls for a rear view, profile or silhouette. Vertical 9:16."
 )
 NEGATIVE = (
     "different person, different face, different glasses, different clothes, "
@@ -28,7 +32,7 @@ NEGATIVE = (
 
 def generate(prompt, number):
     body = json.dumps({
-        "prompt": prompt + " " + ANCHOR,
+        "prompt": prompt + " " + str(draft.get("character_description", "")).strip() + " " + ANCHOR_SUFFIX,
         "negative_prompt": NEGATIVE
     }).encode()
     req = urllib.request.Request(
@@ -94,12 +98,6 @@ ass = [
 hook = draft.get("hook", "").strip()
 if hook:
     ass.append(f"Dialogue: 1,0:00:00.00,0:00:03.50,Tamil,,0,0,0,,{ass_escape(hook)}")
-for i, scene in enumerate(scenes):
-    subtitle = "\n".join(textwrap.wrap(scene.get("english_subtitle", ""), width=34))
-    ass.append(
-        f"Dialogue: 0,{ass_time(i*6)},{ass_time((i+1)*6)},English,,0,0,0,,"
-        f"{ass_escape(subtitle)}"
-    )
 ass_path = ROOT / "subtitles.ass"
 ass_path.write_text("\n".join(ass) + "\n", encoding="utf-8")
 
@@ -171,23 +169,72 @@ with wave.open(str(audio_path), "wb") as wav:
 
         wav.writeframes(b"".join(frames))
 
+# Build subtle, original sound-effect cues from the story's sound_design text.
+# Cues are deliberately conservative; no external copyrighted audio is used.
+sfx_path = ROOT / "sfx.wav"
+sound_text = str(draft.get("sound_design", "")).lower()
+clock_events = list(range(7, 27)) if "clock" in sound_text or "tick" in sound_text else []
+shutter_events = [23.0] if "shutter" in sound_text or "camera" in sound_text else []
+flash_events = [27.5] if "flash" in sound_text else []
+events = [(float(t), "tick") for t in clock_events]
+events += [(float(t), "shutter") for t in shutter_events]
+events += [(float(t), "flash") for t in flash_events]
+
+def click_envelope(local_t, length, decay):
+    if local_t < 0 or local_t > length:
+        return 0.0
+    return math.exp(-decay * local_t)
+
+with wave.open(str(sfx_path), "wb") as wav:
+    wav.setnchannels(2)
+    wav.setsampwidth(2)
+    wav.setframerate(sr)
+    chunk = 4410
+    total = sr * duration
+    for base_sample in range(0, total, chunk):
+        frames = []
+        for n in range(base_sample, min(base_sample + chunk, total)):
+            t = n / sr
+            value = 0.0
+            for event_time, kind in events:
+                local = t - event_time
+                if kind == "tick":
+                    env = click_envelope(local, 0.045, 95.0)
+                    value += env * (0.16 * math.sin(2 * math.pi * 1850 * local)
+                                    + 0.07 * math.sin(2 * math.pi * 2700 * local))
+                elif kind == "shutter":
+                    env = click_envelope(local, 0.18, 34.0)
+                    value += env * (0.20 * math.sin(2 * math.pi * 1150 * local)
+                                    + 0.08 * math.sin(2 * math.pi * 2100 * local))
+                elif kind == "flash":
+                    env = click_envelope(local, 0.65, 8.0)
+                    value += env * (0.24 * math.sin(2 * math.pi * 72 * local)
+                                    + 0.11 * math.sin(2 * math.pi * 420 * local))
+            value = max(-0.5, min(0.5, value))
+            left = int(value * 32767)
+            right = int(value * 0.92 * 32767)
+            frames.append(struct.pack("<hh", left, right))
+        wav.writeframes(b"".join(frames))
+
 clips = []
 for i, image_path in enumerate(images, 1):
     out = ROOT / f"clip{i}.mp4"
+    clip_seconds = scene_durations[i - 1]
+    frames = round(clip_seconds * 30)
     vf = (
         "scale=1080:1920:force_original_aspect_ratio=increase,"
         "crop=1080:1920,"
-        "zoompan=z='min(zoom+0.0007,1.12)':d=180:s=1080x1920:fps=30,"
+        f"zoompan=z='min(zoom+0.0007,1.12)':d={frames}:s=1080x1920:fps=30,"
         "setsar=1"
     )
     subprocess.run(
-        ["ffmpeg","-y","-loop","1","-i",str(image_path),"-t","6",
+        ["ffmpeg","-y","-loop","1","-i",str(image_path),"-t",f"{clip_seconds:.4f}",
          "-vf",vf,"-r","30","-c:v","libx264","-preset","veryfast",
          "-pix_fmt","yuv420p","-an",str(out)],
         check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
     )
     clips.append(out)
-    print(f"Scene {i}: video clip rendered.")
+    print(f"Scene {i}: {clip_seconds:.2f}s video clip rendered.")
 
 concat = ROOT / "concat.txt"
 concat.write_text("".join(f"file '{p.resolve()}'\n" for p in clips), encoding="utf-8")
@@ -204,5 +251,4 @@ subprocess.run(
      "-b:a","160k","-shortest","-movflags","+faststart","cinematic_reel.mp4"],
     check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
 )
-print("SUCCESS: Created cinematic_reel.mp4 with shaped subtitles and clean hybrid horror ambience.")
-print("NOTE: This adds smooth cinematic ambience and subtle tape effects, not spoken Tamil narration.")
+print("SUCCESS: Created silent cinematic_reel.mp4 plus ambience.wav and sfx.wav. Tamil narration and English subtitles are added once during final assembly.")

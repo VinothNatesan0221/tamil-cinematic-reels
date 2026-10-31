@@ -1,1 +1,55 @@
-{"title":"The 1924 Photograph","hook":"100 வருஷத்து போட்டோல... நான் எப்படி?!","scenes":[{"duration_seconds":5,"speaker_gender":"male","visual_prompt":"9:16 vertical composition, cinematic moody lighting, slow dolly push-in. A 30-year-old South Indian man with neat beard and wire-rimmed spectacles, wearing a charcoal wool sweater, sits at a massive mahogany desk inside an eerie, quiet colonial archive room. Golden desk lamp casting deep shadows, dust motes floating in dim amber light.","tamil_narration":"நூறு வருஷ பழமையான இந்த ஆவணக் காப்பகத்துல, இன்னைக்கு ராத்திரி நான் மட்டும்தான் தனியா இருக்கேன்னு நினைச்சேன்.","english_subtitle":"In this century-old archive, I thought I was completely alone tonight."},{"duration_seconds":6,"speaker_gender":"male","visual_prompt":"9:16 vertical composition, extreme macro close-up with slow tilt. The man's trembling fingers open a cracked 1924 leather ledger, revealing a faded sepia photograph. The photograph clearly shows this exact same man in his charcoal sweater, staring wide-eyed in terror from inside the aged picture. Hyper-realistic paper texture, vintage vignetting.","tamil_narration":"1924-ஆம் வருஷத்து டைரிக்குள்ள இருந்த இந்த போட்டோவை பார்த்ததும் என் ரத்தமே உறைஞ்சிடுச்சு.","english_subtitle":"When I saw this photograph tucked inside a 1924 ledger, my blood ran cold."},{"duration_seconds":6,"speaker_gender":"male","visual_prompt":"9:16 vertical composition, suspenseful rack focus. The camera shifts focus from the vintage photo where a wall clock behind him reads exactly 11:59 PM, to the real antique pendulum clock hanging on the stone wall behind him. The real clock's brass second hand ticks relentlessly toward 11:59 PM. Moody contrast between cold moonlight and warm lamp glow.","tamil_narration":"அதே மேஜை, அதே கண்ணாடி... போட்டோல இருக்கிற கடிகார முள் துல்லியமா பதினொன்னு ஐம்பத்தொன்பது காட்டுது!","english_subtitle":"The same desk, the same glasses... and the clock in the photo points to exactly 11:59 PM!"},{"duration_seconds":5,"speaker_gender":"male","visual_prompt":"9:16 vertical composition, eerie slow tracking shot. An antique brass bellows camera mounted on a tripod across the dark room creaks and swivels on its own toward the desk. The lens mechanical shutter clicks and primes itself. Heavy atmospheric haze, dramatic cinematic rim lighting illuminating the rising tension.","tamil_narration":"நிஜ கடிகாரமும் அதே நேரத்தை தொடுது... எதிரே இருக்கிற பழங்கால கேமரா தானா நகர ஆரம்பிக்குது!","english_subtitle":"The real clock strikes that very second... and the antique camera across the room begins moving on its own!"},{"duration_seconds":6,"speaker_gender":"male","visual_prompt":"9:16 vertical composition, dynamic shutter flare and slow motion descent. A blinding vintage magnesium flash floods the entire frame. When the light fades, the chair is empty, and a newly developed sepia photograph drifts slowly through the air and lands face-up on the open ledger, showing the man trapped forever, looping the mystery seamlessly.","tamil_narration":"அந்த மின்னல் வெளிச்சத்துல புரிஞ்சது... இந்த போட்டோவை விட்டு நான் என்னைக்குமே வெளியே போக முடியாது.","english_subtitle":"In that blinding flash, I realized... I can never escape this photograph."}],"caption_tamil":"காலம் ஒரு விசித்திரமான சிறை... 1924-ல் எடுக்கப்பட்ட புகைப்படத்தில் மறைந்திருக்கும் ரகசியம் என்ன? கடைசி வினாடி வரை பாருங்கள்! ⏳📸","caption_english":"Time is an inescapable loop. How did he end up in a photograph taken in 1924? Watch till the end! ⏳📸","hashtags":["CinematicAI","TamilReels","TamilSuspense","MysteryStory","AIFilmmaking","TimeLoop","SciFiTamil"],"cover_text":"1924-ன் மர்ம புகைப்படம் ⏳","sound_design":"Subtle low-frequency ambient drone, rhythmic wooden clock ticking building in volume, mechanical shutter winding click, culminating in an explosive vintage flashbulb pop and sudden chilling silence."}
+{
+  "title": "The 1924 Photograph",
+  "hook": "100 வருஷத்து போட்டோல... நான் எப்படி?!",
+  "scenes": [
+    {
+      "duration_seconds": 5,
+      "speaker_gender": "male",
+      "visual_prompt": "9:16 vertical composition, cinematic moody lighting, slow dolly push-in. A 30-year-old South Indian man with neat beard and wire-rimmed spectacles, wearing a charcoal wool sweater, sits at a massive mahogany desk inside an eerie, quiet colonial archive room. Golden desk lamp casting deep shadows, dust motes floating in dim amber light.",
+      "tamil_narration": "நூறு வருஷ பழமையான இந்த ஆவணக் காப்பகத்துல, இன்னைக்கு ராத்திரி நான் மட்டும்தான் தனியா இருக்கேன்னு நினைச்சேன்.",
+      "english_subtitle": "In this century-old archive, I thought I was completely alone tonight."
+    },
+    {
+      "duration_seconds": 6,
+      "speaker_gender": "male",
+      "visual_prompt": "9:16 vertical composition, extreme macro close-up with slow tilt. The man's trembling fingers open a cracked 1924 leather ledger, revealing a faded sepia photograph. The photograph clearly shows this exact same man in his charcoal sweater, staring wide-eyed in terror from inside the aged picture. Hyper-realistic paper texture, vintage vignetting.",
+      "tamil_narration": "1924-ஆம் வருஷத்து டைரிக்குள்ள இருந்த இந்த போட்டோவை பார்த்ததும் என் ரத்தமே உறைஞ்சிடுச்சு.",
+      "english_subtitle": "When I saw this photograph tucked inside a 1924 ledger, my blood ran cold."
+    },
+    {
+      "duration_seconds": 6,
+      "speaker_gender": "male",
+      "visual_prompt": "9:16 vertical composition, suspenseful rack focus. The camera shifts focus from the vintage photo where a wall clock behind him reads exactly 11:59 PM, to the real antique pendulum clock hanging on the stone wall behind him. The real clock's brass second hand ticks relentlessly toward 11:59 PM. Moody contrast between cold moonlight and warm lamp glow.",
+      "tamil_narration": "அதே மேஜை, அதே கண்ணாடி... போட்டோல இருக்கிற கடிகார முள் துல்லியமா பதினொன்னு ஐம்பத்தொன்பது காட்டுது!",
+      "english_subtitle": "The same desk, the same glasses... and the clock in the photo points to exactly 11:59 PM!"
+    },
+    {
+      "duration_seconds": 5,
+      "speaker_gender": "male",
+      "visual_prompt": "9:16 vertical composition, eerie slow tracking shot. An antique brass bellows camera mounted on a tripod across the dark room creaks and swivels on its own toward the desk. The lens mechanical shutter clicks and primes itself. Heavy atmospheric haze, dramatic cinematic rim lighting illuminating the rising tension.",
+      "tamil_narration": "நிஜ கடிகாரமும் அதே நேரத்தை தொடுது... எதிரே இருக்கிற பழங்கால கேமரா தானா நகர ஆரம்பிக்குது!",
+      "english_subtitle": "The real clock strikes that very second... and the antique camera across the room begins moving on its own!"
+    },
+    {
+      "duration_seconds": 6,
+      "speaker_gender": "male",
+      "visual_prompt": "9:16 vertical composition, dynamic shutter flare and slow motion descent. A blinding vintage magnesium flash floods the entire frame. When the light fades, the chair is empty, and a newly developed sepia photograph drifts slowly through the air and lands face-up on the open ledger, showing the man trapped forever, looping the mystery seamlessly.",
+      "tamil_narration": "அந்த மின்னல் வெளிச்சத்துல புரிஞ்சது... இந்த போட்டோவை விட்டு நான் என்னைக்குமே வெளியே போக முடியாது.",
+      "english_subtitle": "In that blinding flash, I realized... I can never escape this photograph."
+    }
+  ],
+  "caption_tamil": "காலம் ஒரு விசித்திரமான சிறை... 1924-ல் எடுக்கப்பட்ட புகைப்படத்தில் மறைந்திருக்கும் ரகசியம் என்ன? கடைசி வினாடி வரை பாருங்கள்! ⏳📸",
+  "caption_english": "Time is an inescapable loop. How did he end up in a photograph taken in 1924? Watch till the end! ⏳📸",
+  "hashtags": [
+    "CinematicAI",
+    "TamilReels",
+    "TamilSuspense",
+    "MysteryStory",
+    "AIFilmmaking",
+    "TimeLoop",
+    "SciFiTamil"
+  ],
+  "cover_text": "1924-ன் மர்ம புகைப்படம் ⏳",
+  "sound_design": "Subtle low-frequency ambient drone, rhythmic wooden clock ticking building in volume, mechanical shutter winding click, culminating in an explosive vintage flashbulb pop and sudden chilling silence.",
+  "character_description": "A 30-year-old South Indian man with a neat beard and wire-rimmed spectacles, wearing a charcoal wool sweater; preserve the same face, age, glasses, hairstyle and sweater in every scene."
+}
