@@ -1,4 +1,3 @@
-
 name: Build Instagram Publishing Package
 
 on:
@@ -9,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       source_run_id:
-        description: "Source render run ID for a manual package retry"
+        description: "Successful source render run ID for a manual package retry"
         required: true
         type: string
 
@@ -22,14 +21,13 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success')
-
     runs-on: ubuntu-latest
-
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Select source render run
+      - name: Select and validate source render run
         id: source
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -37,12 +35,17 @@ jobs:
           MANUAL_RUN_ID: ${{ inputs.source_run_id }}
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "run_id=$MANUAL_RUN_ID" >> "$GITHUB_OUTPUT"
+            RUN_ID="$MANUAL_RUN_ID"
           else
-            echo "run_id=$EVENT_RUN_ID" >> "$GITHUB_OUTPUT"
+            RUN_ID="$EVENT_RUN_ID"
           fi
+          if ! [[ "$RUN_ID" =~ ^[0-9]+$ ]]; then
+            echo "Invalid source workflow run ID" >&2
+            exit 1
+          fi
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
 
-      - name: Download video and matching story
+      - name: Download video, matching story and ambience
         uses: actions/download-artifact@v4
         with:
           name: cinematic-reel
@@ -51,43 +54,46 @@ jobs:
           repository: ${{ github.repository }}
           path: work
 
-      - name: Verify downloaded files
+      - name: Verify matching source artifact
         run: |
-          test -s work/cinematic_reel.mp4
+          test -s work/work/cinematic_reel.mp4
+          test -s work/work/ambience.wav
+          test -s work/work/sfx.wav
           test -s work/story.json
+          mv work/work/cinematic_reel.mp4 work/cinematic_reel.mp4
+          mv work/work/ambience.wav work/ambience.wav
+          mv work/work/sfx.wav work/sfx.wav
+          rmdir work/work
+          cp assemble_final_reel.py work/assemble_final_reel.py
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
+          cache-dependency-path: requirements.txt
 
-      - name: Install FFmpeg and fonts
+      - name: Install FFmpeg, fonts and TTS providers
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-dejavu-core
-
-      - name: Install Tamil TTS providers
-        run: |
+          sudo apt-get install -y ffmpeg fonts-dejavu-core fonts-noto-core
           python -m pip install --upgrade pip
-          python -m pip install edge-tts gTTS
+          python -m pip install -r requirements.txt
 
-      - name: Build final Reel and publishing assets
-        run: |
-          cp assemble_final_reel.py work/assemble_final_reel.py
-          cd work
-          python assemble_final_reel.py
+      - name: Assemble narration, subtitles and publishing assets
+        working-directory: work
+        run: python assemble_final_reel.py
 
-      - name: Verify publishing package
+      - name: Validate publishing package
         run: |
           test -s work/publishing_package/final_reel.mp4
           test -s work/publishing_package/reel_cover.jpg
           test -s work/publishing_package/instagram_caption.txt
           test -s work/publishing_package/english_subtitles.srt
+          ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 work/publishing_package/final_reel.mp4 | grep -qx aac
+          ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 work/publishing_package/final_reel.mp4 | grep -qx '1080x1920'
 
-          echo "All four publishing files are ready."
-
-      - name: Upload Instagram publishing package
+      - name: Upload review-only Instagram package
         uses: actions/upload-artifact@v4
         with:
           name: instagram-publishing-package

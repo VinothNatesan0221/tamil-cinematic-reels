@@ -7,6 +7,11 @@ on:
         description: "Raw JSON from the approved Google Sheet row"
         required: true
         type: string
+      dispatch_id:
+        description: "Unique Google Sheets dispatch correlation ID"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -15,11 +20,38 @@ permissions:
 jobs:
   render:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Save this story with the render
+      - name: Report render started to Apps Script
+        if: ${{ secrets.APPS_SCRIPT_WEB_APP_URL != '' && secrets.APPS_SCRIPT_CALLBACK_SECRET != '' && inputs.dispatch_id != '' }}
+        continue-on-error: true
+        env:
+          CALLBACK_URL: ${{ secrets.APPS_SCRIPT_WEB_APP_URL }}
+          CALLBACK_SECRET: ${{ secrets.APPS_SCRIPT_CALLBACK_SECRET }}
+          DISPATCH_ID: ${{ inputs.dispatch_id }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 - <<'PY' > callback.json
+          import json, os
+          print(json.dumps({
+              "secret": os.environ["CALLBACK_SECRET"],
+              "dispatch_id": os.environ["DISPATCH_ID"],
+              "run_id": os.environ["RUN_ID"],
+              "run_url": os.environ["RUN_URL"],
+              "status": "RUNNING"
+          }))
+          PY
+          curl --location --silent --show-error --fail-with-body \
+            -H "Content-Type: application/json" \
+            --data-binary @callback.json "$CALLBACK_URL"
+
+      - name: Save this exact story with the render
         env:
           DRAFT_JSON: ${{ inputs.draft_json }}
         run: |
@@ -27,8 +59,17 @@ jobs:
           import json, os
           raw = os.environ["DRAFT_JSON"]
           story = json.loads(raw)
-          if not isinstance(story.get("scenes"), list) or len(story["scenes"]) != 5:
+          scenes = story.get("scenes")
+          if not isinstance(scenes, list) or len(scenes) != 5:
               raise SystemExit("Expected exactly five scenes in draft_json.")
+          for i, scene in enumerate(scenes, 1):
+              for field in ("visual_prompt", "tamil_narration", "english_subtitle"):
+                  if not str(scene.get(field, "")).strip():
+                      raise SystemExit(f"Scene {i} is missing {field}.")
+              if str(scene.get("speaker_gender", "")).lower() not in ("male", "female"):
+                  raise SystemExit(f"Scene {i}: speaker_gender must be male or female.")
+              if float(scene.get("duration_seconds", 6)) <= 0:
+                  raise SystemExit(f"Scene {i}: duration_seconds must be positive.")
           with open("story.json", "w", encoding="utf-8") as f:
               json.dump(story, f, ensure_ascii=False, indent=2)
           PY
@@ -38,25 +79,77 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core fonts-noto-core
 
-      - name: Verify subtitle filter
-        run: ffmpeg -filters 2>/dev/null | grep subtitles
+      - name: Verify FFmpeg capabilities
+        run: |
+          ffmpeg -version
+          ffmpeg -filters 2>/dev/null | grep -q subtitles
+          ffprobe -version
 
-      - name: Generate images and render video
+      - name: Generate images and render silent video plus ambience
         env:
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: python3 render_reel.py
 
-      - name: Verify render outputs
+      - name: Validate render outputs
         run: |
-          test -s cinematic_reel.mp4
+          test -s work/cinematic_reel.mp4
+          test -s work/ambience.wav
+          test -s work/sfx.wav
           test -s story.json
+          ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 work/cinematic_reel.mp4 | grep -qx '1080x1920'
+          DURATION="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 work/cinematic_reel.mp4)"
+          python3 -c 'import sys; d=float(sys.argv[1]); assert 29.0 <= d <= 31.0, f"Unexpected render duration: {d}"' "$DURATION"
 
-      - name: Upload video and matching story
+      - name: Upload video, matching story and ambience stems
+        id: upload
         uses: actions/upload-artifact@v4
         with:
           name: cinematic-reel
           path: |
-            cinematic_reel.mp4
+            work/cinematic_reel.mp4
+            work/ambience.wav
+            work/sfx.wav
             story.json
           if-no-files-found: error
           retention-days: 7
+
+  report:
+    if: always()
+    needs: render
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report render completion to Apps Script
+        if: ${{ secrets.APPS_SCRIPT_WEB_APP_URL != '' && secrets.APPS_SCRIPT_CALLBACK_SECRET != '' && inputs.dispatch_id != '' }}
+        continue-on-error: true
+        env:
+          CALLBACK_URL: ${{ secrets.APPS_SCRIPT_WEB_APP_URL }}
+          CALLBACK_SECRET: ${{ secrets.APPS_SCRIPT_CALLBACK_SECRET }}
+          DISPATCH_ID: ${{ inputs.dispatch_id }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_RESULT: ${{ needs.render.result }}
+          ARTIFACT_ID: ${{ needs.render.outputs.artifact_id }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 - <<'PY' > callback.json
+          import json, os
+          result = os.environ.get("JOB_RESULT", "failure").lower()
+          status = "SUCCESS" if result == "success" else ("CANCELLED" if result == "cancelled" else "FAILED")
+          artifact_id = os.environ.get("ARTIFACT_ID", "")
+          artifact_url = ""
+          if artifact_id:
+              artifact_url = f"https://github.com/{os.environ['REPOSITORY']}/actions/runs/{os.environ['RUN_ID']}/artifacts/{artifact_id}"
+          print(json.dumps({
+              "secret": os.environ["CALLBACK_SECRET"],
+              "dispatch_id": os.environ["DISPATCH_ID"],
+              "run_id": os.environ["RUN_ID"],
+              "run_url": os.environ["RUN_URL"],
+              "status": status,
+              "conclusion": result,
+              "artifact_id": artifact_id,
+              "artifact_url": artifact_url
+          }))
+          PY
+          curl --location --silent --show-error --fail-with-body \
+            -H "Content-Type: application/json" \
+            --data-binary @callback.json "$CALLBACK_URL"
